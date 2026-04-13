@@ -1,0 +1,25 @@
+{
+  "name": "偏頭痛記録",
+  "short_name": "頭痛記録",
+  "description": "偏頭痛の症状・服薬を記録するアプリ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fa",
+  "theme_color": "#5b7fa6",
+  "lang": "ja",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

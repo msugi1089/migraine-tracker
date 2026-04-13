@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="頭痛記録">
+  <meta name="theme-color" content="#5b7fa6">
+  <title>偏頭痛記録</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    :root {
+      --color-pain-none: #f0f0f0;
+      --color-pain-1: #a8e6cf;
+      --color-pain-2: #ffd3a5;
+      --color-pain-3: #ff8b94;
+      --color-primary: #5b7fa6;
+      --color-primary-dark: #4a6a8f;
+      --color-bg: #f5f7fa;
+      --color-card: #ffffff;
+      --color-text: #2d3748;
+      --color-text-light: #718096;
+      --color-border: #e2e8f0;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+      background: var(--color-bg);
+      color: var(--color-text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ===== ヘッダー ===== */
+    #app-header {
+      background: var(--color-primary);
+      color: #fff;
+      padding: calc(var(--safe-top) + 12px) 16px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    #app-header h1 { font-size: 18px; font-weight: 700; }
+
+    .month-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .month-nav button {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: #fff;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #month-label { font-size: 16px; font-weight: 600; min-width: 90px; text-align: center; }
+
+    /* ===== メインコンテンツ ===== */
+    #main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: calc(var(--safe-bottom) + 70px);
+    }
+
+    /* ===== タブバー ===== */
+    #tab-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border-top: 1px solid var(--color-border);
+      display: flex;
+      padding-bottom: var(--safe-bottom);
+      z-index: 100;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      color: var(--color-text-light);
+      font-size: 11px;
+    }
+
+    .tab-btn.active { color: var(--color-primary); }
+    .tab-btn svg { width: 24px; height: 24px; }
+
+    /* ===== カレンダービュー ===== */
+    #view-calendar { padding: 16px; }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+
+    .calendar-dow {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-text-light);
+      padding: 4px 0;
+    }
+
+    .calendar-dow.sun { color: #e53e3e; }
+    .calendar-dow.sat { color: #3182ce; }
+
+    .calendar-day {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      background: var(--color-pain-none);
+      border: 2px solid transparent;
+      transition: transform 0.1s;
+      min-height: 44px;
+    }
+
+    .calendar-day:active { transform: scale(0.94); }
+    .calendar-day.empty { background: transparent; cursor: default; }
+    .calendar-day.today { border-color: var(--color-primary); }
+    .calendar-day.pain-1 { background: var(--color-pain-1); }
+    .calendar-day.pain-2 { background: var(--color-pain-2); }
+    .calendar-day.pain-3 { background: var(--color-pain-3); }
+
+    .calendar-day.sun .day-num { color: #e53e3e; }
+    .calendar-day.sat .day-num { color: #3182ce; }
+
+    .day-num { font-size: 14px; font-weight: 600; }
+    .day-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--color-primary); margin-top: 1px; }
+
+    /* カレンダー凡例 */
+    .legend {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+      padding: 12px;
+      background: var(--color-card);
+      border-radius: 10px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--color-text-light);
+    }
+
+    .legend-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+    }
+
+    /* ===== 一覧ビュー ===== */
+    #view-list { padding: 16px; }
+
+    .episode-card {
+      background: var(--color-card);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      cursor: pointer;
+      border-left: 4px solid var(--color-pain-none);
+      transition: transform 0.1s;
+    }
+
+    .episode-card:active { transform: scale(0.98); }
+    .episode-card.pain-1 { border-left-color: var(--color-pain-1); }
+    .episode-card.pain-2 { border-left-color: var(--color-pain-2); }
+    .episode-card.pain-3 { border-left-color: var(--color-pain-3); }
+
+    .episode-date { font-size: 13px; color: var(--color-text-light); }
+    .episode-main { display: flex; align-items: center; gap: 10px; }
+    .pain-badge {
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .pain-badge.p1 { background: var(--color-pain-1); }
+    .pain-badge.p2 { background: var(--color-pain-2); }
+    .pain-badge.p3 { background: var(--color-pain-3); }
+
+    .episode-time { font-size: 14px; font-weight: 600; }
+    .episode-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .tag {
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      background: #edf2f7;
+      color: var(--color-text-light);
+    }
+
+    .episode-memo { font-size: 13px; color: var(--color-text-light); font-style: italic; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--color-text-light);
+    }
+
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 15px; }
+
+    /* ===== フォームビュー（モーダル） ===== */
+    #form-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      align-items: flex-end;
+    }
+
+    #form-overlay.open { display: flex; }
+
+    #form-sheet {
+      background: var(--color-card);
+      border-radius: 20px 20px 0 0;
+      width: 100%;
+      max-height: 92dvh;
+      overflow-y: auto;
+      padding: 0 0 calc(var(--safe-bottom) + 16px);
+      animation: slideUp 0.25s ease-out;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .form-handle {
+      width: 40px;
+      height: 4px;
+      background: var(--color-border);
+      border-radius: 2px;
+      margin: 12px auto 0;
+    }
+
+    .form-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--color-border);
+      position: sticky;
+      top: 0;
+      background: var(--color-card);
+      z-index: 10;
+    }
+
+    .form-title { font-size: 17px; font-weight: 700; }
+
+    .btn-close {
+      background: #edf2f7;
+      border: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-text-light);
+    }
+
+    .form-body { padding: 16px 20px; }
+
+    .form-group { margin-bottom: 20px; }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-light);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .time-row { display: flex; gap: 12px; }
+    .time-row .form-group { flex: 1; }
+
+    input[type="time"],
+    input[type="text"],
+    textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid var(--color-border);
+      border-radius: 10px;
+      font-size: 16px;
+      font-family: inherit;
+      background: #fff;
+      color: var(--color-text);
+      -webkit-appearance: none;
+    }
+
+    input[type="time"]:focus,
+    input[type="text"]:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+
+    textarea { min-height: 80px; resize: vertical; }
+
+    /* 痛みレベルボタン */
+    .pain-btns { display: flex; gap: 10px; }
+
+    .pain-btn {
+      flex: 1;
+      padding: 14px 0;
+      border: 2px solid var(--color-border);
+      border-radius: 12px;
+      background: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pain-btn .pain-label { font-size: 11px; font-weight: 400; color: var(--color-text-light); }
+
+    .pain-btn[data-level="1"].selected { background: var(--color-pain-1); border-color: #6bbf96; }
+    .pain-btn[data-level="2"].selected { background: var(--color-pain-2); border-color: #e0933a; }
+    .pain-btn[data-level="3"].selected { background: var(--color-pain-3); border-color: #d45f6a; }
+
+    /* トグル */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-label { font-size: 16px; }
+
+    .toggle {
+      position: relative;
+      width: 50px;
+      height: 28px;
+    }
+
+    .toggle input { opacity: 0; width: 0; height: 0; }
+
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: #cbd5e0;
+      border-radius: 28px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      background: #fff;
+      border-radius: 50%;
+      top: 3px;
+      left: 3px;
+      transition: 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .toggle input:checked + .toggle-slider { background: var(--color-primary); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(22px); }
+
+    /* 前兆種類チェックボックス */
+    #aura-types-section {
+      display: none;
+      background: #f7fafc;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 10px;
+    }
+
+    #aura-types-section.visible { display: block; }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      cursor: pointer;
+    }
+
+    .check-item input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--color-primary);
+      cursor: pointer;
+    }
+
+    .check-item span { font-size: 15px; }
+
+    /* 服薬詳細 */
+    #medication-detail {
+      display: none;
+      background: #f7fafc;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 10px;
+    }
+
+    #medication-detail.visible { display: block; }
+
+    .med-row { display: flex; gap: 10px; }
+    .med-row .form-group { flex: 1; }
+
+    /* フォームフッター */
+    .form-footer {
+      padding: 16px 20px 0;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 15px 0;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .btn-save { background: var(--color-primary); color: #fff; }
+    .btn-save:active { background: var(--color-primary-dark); }
+    .btn-delete { background: #fff0f0; color: #e53e3e; border: 1.5px solid #fed7d7; flex: 0 0 auto; padding: 15px 20px; }
+
+    /* FAB */
+    #fab {
+      position: fixed;
+      bottom: calc(var(--safe-bottom) + 76px);
+      right: 20px;
+      width: 56px;
+      height: 56px;
+      background: var(--color-primary);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      font-size: 28px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(91,127,166,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      transition: transform 0.1s;
+    }
+
+    #fab:active { transform: scale(0.92); }
+
+    /* 日付詳細モーダル */
+    #day-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 150;
+      align-items: flex-end;
+    }
+
+    #day-overlay.open { display: flex; }
+
+    #day-sheet {
+      background: var(--color-card);
+      border-radius: 20px 20px 0 0;
+      width: 100%;
+      max-height: 70dvh;
+      overflow-y: auto;
+      padding: 0 0 calc(var(--safe-bottom) + 16px);
+      animation: slideUp 0.25s ease-out;
+    }
+
+    .day-sheet-header {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: var(--color-card);
+    }
+
+    .day-sheet-title { font-size: 17px; font-weight: 700; }
+
+    .day-episode-item {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--color-border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .day-episode-item:active { background: #f7fafc; }
+
+    .day-episode-left { display: flex; flex-direction: column; gap: 4px; }
+    .day-episode-title { font-size: 15px; font-weight: 600; }
+    .day-episode-sub { font-size: 13px; color: var(--color-text-light); }
+
+    .chevron { color: var(--color-text-light); font-size: 18px; }
+
+    .day-add-btn {
+      margin: 16px 20px 0;
+      width: calc(100% - 40px);
+      padding: 14px;
+      background: #edf2f7;
+      border: 2px dashed var(--color-border);
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--color-primary);
+      cursor: pointer;
+      font-family: inherit;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ヘッダー -->
+<header id="app-header">
+  <h1>偏頭痛記録 <small id="app-version" style="font-size:0.55em;opacity:0.75;cursor:pointer" onclick="App.showChangelog()"></small></h1>
+  <div style="display:flex;align-items:center;gap:6px">
+    <button onclick="App.openBackup()" aria-label="バックアップ"
+      style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">
+      ☁
+    </button>
+    <div class="month-nav">
+      <button id="prev-month" aria-label="前の月">‹</button>
+      <span id="month-label"></span>
+      <button id="next-month" aria-label="次の月">›</button>
+    </div>
+  </div>
+</header>
+
+<!-- バックアップモーダル -->
+<div id="backup-overlay" onclick="App.closeBackup(event)"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end">
+  <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;padding:0 0 calc(var(--safe-bottom)+24px);animation:slideUp .25s ease-out">
+    <div style="width:40px;height:4px;background:var(--color-border);border-radius:2px;margin:12px auto 0"></div>
+    <div style="padding:16px 20px 12px;border-bottom:1px solid var(--color-border)">
+      <p style="font-size:17px;font-weight:700">バックアップ</p>
+    </div>
+    <div style="padding:20px">
+      <p style="font-size:13px;color:var(--color-text-light);margin-bottom:16px">
+        機種変更やSafariデータ削除でも記録を守れます。
+      </p>
+
+      <button onclick="App.exportData()"
+        style="width:100%;padding:15px;background:var(--color-primary);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:12px">
+        💾　書き出し（バックアップ保存）
+      </button>
+
+      <button onclick="document.getElementById('import-file').click()"
+        style="width:100%;padding:15px;background:#fff;color:var(--color-primary);border:2px solid var(--color-primary);border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit">
+        📂　読み込み（バックアップから復元）
+      </button>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="App.importData(this)">
+
+      <p style="font-size:12px;color:var(--color-text-light);text-align:center;margin-top:12px">
+        ※ 読み込むと現在の記録に追加されます
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- 更新情報モーダル -->
+<div id="changelog-overlay" onclick="App.closeChangelog(event)"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end">
+  <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-height:70vh;overflow-y:auto;padding:0 0 calc(var(--safe-bottom)+24px);animation:slideUp .25s ease-out">
+    <div style="width:40px;height:4px;background:var(--color-border);border-radius:2px;margin:12px auto 0"></div>
+    <div style="padding:16px 20px 12px;border-bottom:1px solid var(--color-border)">
+      <p style="font-size:17px;font-weight:700">更新情報</p>
+    </div>
+    <div id="changelog-body" style="padding:16px 20px"></div>
+    <div style="padding:0 20px">
+      <button onclick="App.closeChangelog()"
+        style="width:100%;padding:14px;background:var(--color-primary);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit">
+        閉じる
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- メインコンテンツ -->
+<main id="main-content">
+  <!-- カレンダービュー -->
+  <div id="view-calendar">
+    <div class="calendar-grid" id="calendar-grid"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--color-pain-1)"></div>軽い</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--color-pain-2)"></div>中程度</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--color-pain-3)"></div>強い</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--color-pain-none);border:1px solid #ccc"></div>記録なし</div>
+    </div>
+  </div>
+
+  <!-- 一覧ビュー -->
+  <div id="view-list" style="display:none"></div>
+</main>
+
+<!-- タブバー -->
+<nav id="tab-bar">
+  <button class="tab-btn active" id="tab-calendar" onclick="App.switchTab('calendar')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+    カレンダー
+  </button>
+  <button class="tab-btn" id="tab-list" onclick="App.switchTab('list')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+      <line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor"/>
+      <circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="3" cy="18" r="1" fill="currentColor"/>
+    </svg>
+    一覧
+  </button>
+</nav>
+
+<!-- FAB（今日の記録追加） -->
+<button id="fab" onclick="App.openNewEntryForToday()" aria-label="今日の記録を追加">+</button>
+
+<!-- 日付詳細モーダル -->
+<div id="day-overlay" onclick="App.closeDaySheet(event)">
+  <div id="day-sheet">
+    <div class="form-handle"></div>
+    <div class="day-sheet-header">
+      <span class="day-sheet-title" id="day-sheet-title"></span>
+      <button class="btn-close" onclick="App.closeDaySheet()">×</button>
+    </div>
+    <div id="day-episodes-list"></div>
+    <button class="day-add-btn" id="day-add-btn">＋ この日の記録を追加</button>
+  </div>
+</div>
+
+<!-- 入力フォームモーダル -->
+<div id="form-overlay" onclick="App.closeForm(event)">
+  <div id="form-sheet">
+    <div class="form-handle"></div>
+    <div class="form-header">
+      <span class="form-title" id="form-title">記録を追加</span>
+      <button class="btn-close" onclick="App.closeForm()">×</button>
+    </div>
+    <div class="form-body">
+      <input type="hidden" id="edit-id">
+      <input type="hidden" id="edit-date">
+
+      <div class="time-row">
+        <div class="form-group">
+          <label class="form-label">開始時刻</label>
+          <input type="time" id="f-time-start">
+        </div>
+        <div class="form-group">
+          <label class="form-label">終了時刻</label>
+          <input type="time" id="f-time-end">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">頭痛の強さ</label>
+        <div class="pain-btns">
+          <button class="pain-btn" data-level="1" onclick="App.selectPain(1)">
+            1<span class="pain-label">軽い</span>
+          </button>
+          <button class="pain-btn" data-level="2" onclick="App.selectPain(2)">
+            2<span class="pain-label">中程度</span>
+          </button>
+          <button class="pain-btn" data-level="3" onclick="App.selectPain(3)">
+            3<span class="pain-label">強い</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">症状</label>
+        <div class="toggle-row">
+          <span class="toggle-label">前兆あり</span>
+          <label class="toggle">
+            <input type="checkbox" id="f-has-aura" onchange="App.toggleAura(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div id="aura-types-section">
+          <p style="font-size:12px;color:var(--color-text-light);margin-bottom:8px;">前兆の種類（複数選択可）</p>
+          <label class="check-item"><input type="checkbox" value="閃輝暗点"><span>閃輝暗点（ギザギザした光）</span></label>
+          <label class="check-item"><input type="checkbox" value="感覚異常"><span>感覚異常（しびれなど）</span></label>
+          <label class="check-item"><input type="checkbox" value="視野異常"><span>視野異常</span></label>
+          <label class="check-item"><input type="checkbox" value="言語障害"><span>言語障害</span></label>
+          <label class="check-item"><input type="checkbox" value="めまい"><span>めまい</span></label>
+          <label class="check-item"><input type="checkbox" value="その他"><span>その他</span></label>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">吐き気</span>
+          <label class="toggle">
+            <input type="checkbox" id="f-has-nausea">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">嘔吐</span>
+          <label class="toggle">
+            <input type="checkbox" id="f-has-vomit">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">服薬</label>
+        <div class="toggle-row">
+          <span class="toggle-label">服薬した</span>
+          <label class="toggle">
+            <input type="checkbox" id="f-has-med" onchange="App.toggleMed(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div id="medication-detail">
+          <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <label class="form-label" style="margin-bottom:0">薬の名前</label>
+              <button type="button" onclick="App.toggleDrugManager()" style="font-size:12px;color:var(--color-primary);background:none;border:none;cursor:pointer;padding:0">登録薬を管理</button>
+            </div>
+            <input type="text" id="f-med-name" placeholder="例：イミグラン" autocomplete="new-password">
+            <div id="drug-shortcuts" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+            <div id="drug-manager" style="display:none;background:#f7fafc;border-radius:10px;padding:10px;margin-top:8px">
+              <p style="font-size:12px;color:var(--color-text-light);margin-bottom:8px">登録済みの薬（タップで削除）</p>
+              <div id="drug-manager-list"></div>
+              <p id="drug-manager-empty" style="font-size:13px;color:var(--color-text-light);text-align:center;padding:8px 0;display:none">登録された薬はありません</p>
+            </div>
+          </div>
+          <div class="med-row">
+            <div class="form-group">
+              <label class="form-label">錠数</label>
+              <input type="number" id="f-med-tablets" min="0.5" max="10" step="0.5" placeholder="1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">服薬時刻</label>
+              <input type="time" id="f-med-time">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">メモ</label>
+        <textarea id="f-memo" placeholder="気になったことや誘因など…"></textarea>
+      </div>
+    </div>
+
+    <div class="form-footer">
+      <button class="btn btn-delete" id="btn-delete" onclick="App.deleteRecord()" style="display:none">削除</button>
+      <button class="btn btn-save" onclick="App.saveRecord()">保存する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== バージョン情報 =====
+const APP_VERSION = 'v1.0.3';
+
+const CHANGELOG = [
+  {
+    version: 'v1.0.3',
+    date: '2026-04-13',
+    changes: ['スクリプト安定化']
+  },
+  {
+    version: 'v1.0.2',
+    date: '2026-04-13',
+    changes: ['バージョン管理・更新情報機能を追加']
+  },
+  {
+    version: 'v1.0.0',
+    date: '2026-04-13',
+    changes: ['初回リリース']
+  }
+];
+
+// ===== StorageManager =====
+const StorageManager = {
+  KEY: 'migraine-records',
+  DRUG_KEY: 'migraine-drugs',
+  load() {
+    try { return JSON.parse(localStorage.getItem(this.KEY) || '[]'); }
+    catch { return []; }
+  },
+  save(records) {
+    localStorage.setItem(this.KEY, JSON.stringify(records));
+  },
+  loadDrugs() {
+    try { return JSON.parse(localStorage.getItem(this.DRUG_KEY) || '[]'); }
+    catch { return []; }
+  },
+  saveDrug(name) {
+    if (!name || !name.trim()) return;
+    const drugs = this.loadDrugs();
+    if (!drugs.includes(name.trim())) {
+      drugs.push(name.trim());
+      localStorage.setItem(this.DRUG_KEY, JSON.stringify(drugs));
+    }
+  },
+  deleteDrug(name) {
+    const drugs = this.loadDrugs().filter(d => d !== name);
+    localStorage.setItem(this.DRUG_KEY, JSON.stringify(drugs));
+  }
+};
+
+// ===== RecordManager =====
+const RecordManager = {
+  records: [],
+  init() { this.records = StorageManager.load(); },
+  save() { StorageManager.save(this.records); },
+
+  add(data) {
+    const dayRecords = this.getByDate(data.date);
+    data.episodeIndex = dayRecords.length;
+    data.id = `${data.date}_${data.episodeIndex}`;
+    data.createdAt = new Date().toISOString();
+    data.updatedAt = new Date().toISOString();
+    this.records.push(data);
+    this.save();
+    return data;
+  },
+
+  update(id, data) {
+    const idx = this.records.findIndex(r => r.id === id);
+    if (idx === -1) return null;
+    this.records[idx] = { ...this.records[idx], ...data, updatedAt: new Date().toISOString() };
+    this.save();
+    return this.records[idx];
+  },
+
+  delete(id) {
+    this.records = this.records.filter(r => r.id !== id);
+    this.save();
+  },
+
+  getByDate(date) {
+    return this.records.filter(r => r.date === date).sort((a,b) => a.episodeIndex - b.episodeIndex);
+  },
+
+  getByMonth(year, month) {
+    const prefix = `${year}-${String(month+1).padStart(2,'0')}`;
+    return this.records.filter(r => r.date.startsWith(prefix));
+  },
+
+  getById(id) {
+    return this.records.find(r => r.id === id) || null;
+  },
+
+  getMaxPainByDate(year, month) {
+    const map = {};
+    this.getByMonth(year, month).forEach(r => {
+      if (!map[r.date] || r.painLevel > map[r.date]) {
+        map[r.date] = r.painLevel;
+      }
+    });
+    return map;
+  }
+};
+
+// ===== CalendarRenderer =====
+const CalendarRenderer = {
+  render(year, month) {
+    const painMap = RecordManager.getMaxPainByDate(year, month);
+    const today = new Date();
+    const todayStr = dateStr(today);
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+
+    const dows = ['日','月','火','水','木','金','土'];
+    let html = dows.map((d,i) =>
+      `<div class="calendar-dow ${i===0?'sun':i===6?'sat':''}">${d}</div>`
+    ).join('');
+
+    for (let i = 0; i < firstDay; i++) {
+      html += `<div class="calendar-day empty"></div>`;
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const pain = painMap[ds];
+      const isToday = ds === todayStr;
+      const dow = (firstDay + d - 1) % 7;
+      const sunClass = dow === 0 ? 'sun' : '';
+      const satClass = dow === 6 ? 'sat' : '';
+      const painClass = pain ? `pain-${pain}` : '';
+      const todayClass = isToday ? 'today' : '';
+      const hasDot = RecordManager.getByDate(ds).length > 1;
+
+      html += `<div class="calendar-day ${painClass} ${todayClass} ${sunClass} ${satClass}"
+        onclick="App.openDaySheet('${ds}')">
+        <span class="day-num">${d}</span>
+        ${hasDot ? '<span class="day-dot"></span>' : ''}
+      </div>`;
+    }
+
+    document.getElementById('calendar-grid').innerHTML = html;
+  }
+};
+
+// ===== ListRenderer =====
+const ListRenderer = {
+  render(year, month) {
+    const records = RecordManager.getByMonth(year, month)
+      .sort((a,b) => {
+        if (b.date !== a.date) return b.date.localeCompare(a.date);
+        return a.episodeIndex - b.episodeIndex;
+      });
+
+    const el = document.getElementById('view-list');
+    if (records.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>この月の記録はありません</p></div>`;
+      return;
+    }
+
+    el.innerHTML = records.map(r => {
+      const d = new Date(r.date + 'T00:00:00');
+      const dows = ['日','月','火','水','木','金','土'];
+      const dateLabel = `${d.getMonth()+1}月${d.getDate()}日（${dows[d.getDay()]}）`;
+      const epLabel = r.episodeIndex + 1 > 1 ? `頭痛${r.episodeIndex+1}回目` : '';
+      const timeStr = r.timeStart ? `${r.timeStart}${r.timeEnd ? ' 〜 '+r.timeEnd : ''}` : '';
+      const painLabels = ['','軽い','中程度','強い'];
+      const tags = [];
+      if (r.hasAura) tags.push('前兆あり');
+      if (r.auraTypes && r.auraTypes.length) tags.push(...r.auraTypes);
+      if (r.hasNausea) tags.push('吐き気');
+      if (r.hasVomit) tags.push('嘔吐');
+      if (r.medication && r.medication.taken) {
+        let medStr = '服薬';
+        if (r.medication.name) medStr += `：${r.medication.name}`;
+        if (r.medication.tablets) medStr += ` ${r.medication.tablets}錠`;
+        tags.push(medStr);
+      }
+
+      return `<div class="episode-card pain-${r.painLevel||0}" onclick="App.editRecord('${r.id}')">
+        <div class="episode-date">${dateLabel}${epLabel ? ' · '+epLabel : ''}</div>
+        <div class="episode-main">
+          ${r.painLevel ? `<span class="pain-badge p${r.painLevel}">${painLabels[r.painLevel]}</span>` : ''}
+          ${timeStr ? `<span class="episode-time">${timeStr}</span>` : ''}
+        </div>
+        ${tags.length ? `<div class="episode-tags">${tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>` : ''}
+        ${r.memo ? `<div class="episode-memo">${r.memo}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+};
+
+// ===== Utilities =====
+function dateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function formatDate(ds) {
+  const d = new Date(ds + 'T00:00:00');
+  const dows = ['日','月','火','水','木','金','土'];
+  return `${d.getMonth()+1}月${d.getDate()}日（${dows[d.getDay()]}）`;
+}
+
+// ===== App =====
+const App = {
+  currentTab: 'calendar',
+  currentMonth: new Date(),
+  selectedDate: null,
+
+  init() {
+    RecordManager.init();
+    this.currentMonth = new Date();
+    this.updateMonthLabel();
+    this.renderCurrentView();
+
+    document.getElementById('prev-month').onclick = () => this.changeMonth(-1);
+    document.getElementById('next-month').onclick = () => this.changeMonth(1);
+
+    // バージョン表示
+    document.getElementById('app-version').textContent = APP_VERSION;
+
+    // Service Worker登録
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    }
+  },
+
+  showChangelog() {
+    const body = document.getElementById('changelog-body');
+    body.innerHTML = CHANGELOG.map(entry => `
+      <div style="margin-bottom:20px">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">
+          <span style="font-size:15px;font-weight:700;color:var(--color-primary)">${entry.version}</span>
+          <span style="font-size:12px;color:var(--color-text-light)">${entry.date}</span>
+        </div>
+        <ul style="margin:0;padding-left:18px">
+          ${entry.changes.map(c => `<li style="font-size:14px;color:var(--color-text);margin-bottom:3px">${c}</li>`).join('')}
+        </ul>
+      </div>
+    `).join('<hr style="border:none;border-top:1px solid var(--color-border);margin-bottom:20px">');
+    const overlay = document.getElementById('changelog-overlay');
+    overlay.style.display = 'flex';
+  },
+
+  closeChangelog(e) {
+    if (e && e.target !== document.getElementById('changelog-overlay')) return;
+    document.getElementById('changelog-overlay').style.display = 'none';
+  },
+
+  changeMonth(delta) {
+    this.currentMonth = new Date(this.currentMonth.getFullYear(), this.currentMonth.getMonth() + delta, 1);
+    this.updateMonthLabel();
+    this.renderCurrentView();
+  },
+
+  updateMonthLabel() {
+    const y = this.currentMonth.getFullYear();
+    const m = this.currentMonth.getMonth() + 1;
+    document.getElementById('month-label').textContent = `${y}年${m}月`;
+  },
+
+  renderCurrentView() {
+    const y = this.currentMonth.getFullYear();
+    const m = this.currentMonth.getMonth();
+    if (this.currentTab === 'calendar') {
+      CalendarRenderer.render(y, m);
+    } else {
+      ListRenderer.render(y, m);
+    }
+  },
+
+  switchTab(tab) {
+    this.currentTab = tab;
+    document.getElementById('view-calendar').style.display = tab === 'calendar' ? '' : 'none';
+    document.getElementById('view-list').style.display = tab === 'list' ? '' : 'none';
+    document.getElementById('tab-calendar').classList.toggle('active', tab === 'calendar');
+    document.getElementById('tab-list').classList.toggle('active', tab === 'list');
+    this.renderCurrentView();
+  },
+
+  // ===== 日付詳細モーダル =====
+  openDaySheet(date) {
+    this.selectedDate = date;
+    document.getElementById('day-sheet-title').textContent = formatDate(date);
+    this.renderDayEpisodes(date);
+    document.getElementById('day-add-btn').onclick = () => {
+      this.closeDaySheet();
+      this.openNewEntry(date);
+    };
+    document.getElementById('day-overlay').classList.add('open');
+  },
+
+  renderDayEpisodes(date) {
+    const records = RecordManager.getByDate(date);
+    const painLabels = ['','軽い','中程度','強い'];
+    const el = document.getElementById('day-episodes-list');
+    if (records.length === 0) {
+      el.innerHTML = `<p style="padding:20px;color:var(--color-text-light);text-align:center">記録はありません</p>`;
+      return;
+    }
+    el.innerHTML = records.map(r => {
+      const timeStr = r.timeStart ? `${r.timeStart}${r.timeEnd ? ' 〜 '+r.timeEnd : ''}` : '時刻未記入';
+      const painStr = r.painLevel ? `痛み：${painLabels[r.painLevel]}` : '';
+      return `<div class="day-episode-item" onclick="App.editFromDay('${r.id}')">
+        <div class="day-episode-left">
+          <div class="day-episode-title">頭痛${r.episodeIndex+1}回目　${timeStr}</div>
+          <div class="day-episode-sub">${painStr}</div>
+        </div>
+        <span class="chevron">›</span>
+      </div>`;
+    }).join('');
+  },
+
+  editFromDay(id) {
+    this.closeDaySheet();
+    setTimeout(() => this.editRecord(id), 250);
+  },
+
+  closeDaySheet(e) {
+    if (e && e.target !== document.getElementById('day-overlay')) return;
+    document.getElementById('day-overlay').classList.remove('open');
+  },
+
+  // ===== フォーム =====
+  openNewEntry(date) {
+    this.resetForm();
+    document.getElementById('edit-date').value = date;
+    document.getElementById('form-title').textContent = `${formatDate(date)} の記録`;
+    document.getElementById('btn-delete').style.display = 'none';
+    // 現在時刻をデフォルト設定
+    const now = new Date();
+    const hm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    document.getElementById('f-time-start').value = hm;
+    document.getElementById('form-overlay').classList.add('open');
+  },
+
+  openNewEntryForToday() {
+    const today = dateStr(new Date());
+    // 今月でない場合は今月に戻す
+    const now = new Date();
+    this.currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    this.updateMonthLabel();
+    this.renderCurrentView();
+    this.openNewEntry(today);
+  },
+
+  editRecord(id) {
+    const r = RecordManager.getById(id);
+    if (!r) return;
+    this.resetForm();
+    document.getElementById('edit-id').value = r.id;
+    document.getElementById('edit-date').value = r.date;
+    document.getElementById('form-title').textContent = `${formatDate(r.date)} の記録を編集`;
+    document.getElementById('btn-delete').style.display = '';
+
+    document.getElementById('f-time-start').value = r.timeStart || '';
+    document.getElementById('f-time-end').value = r.timeEnd || '';
+
+    if (r.painLevel) this.selectPain(r.painLevel);
+
+    document.getElementById('f-has-aura').checked = !!r.hasAura;
+    this.toggleAura(!!r.hasAura);
+    if (r.auraTypes) {
+      document.querySelectorAll('#aura-types-section input[type=checkbox]').forEach(cb => {
+        cb.checked = r.auraTypes.includes(cb.value);
+      });
+    }
+
+    document.getElementById('f-has-nausea').checked = !!r.hasNausea;
+    document.getElementById('f-has-vomit').checked = !!r.hasVomit;
+
+    const hasMed = r.medication && r.medication.taken;
+    document.getElementById('f-has-med').checked = hasMed;
+    this.toggleMed(hasMed);
+    if (hasMed) {
+      document.getElementById('f-med-name').value = r.medication.name || '';
+      document.getElementById('f-med-tablets').value = r.medication.tablets || '';
+      document.getElementById('f-med-time').value = r.medication.time || '';
+    }
+
+    document.getElementById('f-memo').value = r.memo || '';
+    document.getElementById('form-overlay').classList.add('open');
+  },
+
+  resetForm() {
+    document.getElementById('edit-id').value = '';
+    document.getElementById('edit-date').value = '';
+    document.getElementById('f-time-start').value = '';
+    document.getElementById('f-time-end').value = '';
+    document.querySelectorAll('.pain-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('f-has-aura').checked = false;
+    this.toggleAura(false);
+    document.querySelectorAll('#aura-types-section input[type=checkbox]').forEach(cb => cb.checked = false);
+    document.getElementById('f-has-nausea').checked = false;
+    document.getElementById('f-has-vomit').checked = false;
+    document.getElementById('f-has-med').checked = false;
+    this.toggleMed(false);
+    document.getElementById('f-med-name').value = '';
+    document.getElementById('f-med-tablets').value = '';
+    document.getElementById('f-med-time').value = '';
+    document.getElementById('f-memo').value = '';
+  },
+
+  selectPain(level) {
+    document.querySelectorAll('.pain-btn').forEach(b => {
+      b.classList.toggle('selected', parseInt(b.dataset.level) === level);
+    });
+  },
+
+  toggleAura(checked) {
+    document.getElementById('aura-types-section').classList.toggle('visible', checked);
+  },
+
+  toggleMed(checked) {
+    document.getElementById('medication-detail').classList.toggle('visible', checked);
+    if (checked) this.refreshDrugList();
+    else document.getElementById('drug-manager').style.display = 'none';
+  },
+
+  refreshDrugList() {
+    const drugs = StorageManager.loadDrugs();
+    const sc = document.getElementById('drug-shortcuts');
+    sc.innerHTML = drugs.map(d =>
+      `<button type="button" onclick="document.getElementById('f-med-name').value='${d.replace(/'/g,"\\'")}'"
+        style="padding:6px 12px;background:#edf2f7;border:1.5px solid var(--color-border);border-radius:20px;font-size:13px;cursor:pointer;font-family:inherit">${d}</button>`
+    ).join('');
+  },
+
+  toggleDrugManager() {
+    const mgr = document.getElementById('drug-manager');
+    const isOpen = mgr.style.display !== 'none';
+    if (isOpen) { mgr.style.display = 'none'; return; }
+    this.renderDrugManager();
+    mgr.style.display = 'block';
+  },
+
+  renderDrugManager() {
+    const drugs = StorageManager.loadDrugs();
+    const list = document.getElementById('drug-manager-list');
+    const empty = document.getElementById('drug-manager-empty');
+    if (drugs.length === 0) {
+      list.innerHTML = '';
+      empty.style.display = '';
+    } else {
+      empty.style.display = 'none';
+      list.innerHTML = drugs.map(d =>
+        `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--color-border)">
+          <span style="font-size:15px">${d}</span>
+          <button type="button" onclick="App.deleteDrug('${d.replace(/'/g, "\\'")}')"
+            style="background:#fee2e2;border:none;color:#e53e3e;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">削除</button>
+        </div>`
+      ).join('');
+    }
+  },
+
+  deleteDrug(name) {
+    if (!confirm(`「${name}」を削除しますか？`)) return;
+    StorageManager.deleteDrug(name);
+    this.refreshDrugList();
+    this.renderDrugManager();
+  },
+
+  saveRecord() {
+    const id = document.getElementById('edit-id').value;
+    const date = document.getElementById('edit-date').value;
+    if (!date) return;
+
+    const selectedPainBtn = document.querySelector('.pain-btn.selected');
+    const painLevel = selectedPainBtn ? parseInt(selectedPainBtn.dataset.level) : null;
+
+    const hasAura = document.getElementById('f-has-aura').checked;
+    const auraTypes = hasAura
+      ? [...document.querySelectorAll('#aura-types-section input[type=checkbox]:checked')].map(c => c.value)
+      : [];
+
+    const hasMed = document.getElementById('f-has-med').checked;
+
+    const data = {
+      date,
+      timeStart: document.getElementById('f-time-start').value,
+      timeEnd: document.getElementById('f-time-end').value,
+      painLevel,
+      hasAura,
+      auraTypes,
+      hasNausea: document.getElementById('f-has-nausea').checked,
+      hasVomit: document.getElementById('f-has-vomit').checked,
+      medication: {
+        taken: hasMed,
+        name: hasMed ? document.getElementById('f-med-name').value : '',
+        tablets: hasMed ? document.getElementById('f-med-tablets').value : '',
+        time: hasMed ? document.getElementById('f-med-time').value : ''
+      },
+      memo: document.getElementById('f-memo').value
+    };
+
+    if (id) {
+      RecordManager.update(id, data);
+    } else {
+      RecordManager.add(data);
+    }
+
+    if (hasMed && data.medication.name) {
+      StorageManager.saveDrug(data.medication.name);
+    }
+
+    this.closeForm();
+    this.renderCurrentView();
+  },
+
+  deleteRecord() {
+    const id = document.getElementById('edit-id').value;
+    if (!id) return;
+    if (!confirm('この記録を削除しますか？')) return;
+    RecordManager.delete(id);
+    this.closeForm();
+    this.renderCurrentView();
+  },
+
+  closeForm(e) {
+    if (e && e.target !== document.getElementById('form-overlay')) return;
+    document.getElementById('form-overlay').classList.remove('open');
+  },
+
+  // ===== バックアップ =====
+  openBackup() {
+    document.getElementById('backup-overlay').style.display = 'flex';
+  },
+
+  closeBackup(e) {
+    if (e && e.target !== document.getElementById('backup-overlay')) return;
+    document.getElementById('backup-overlay').style.display = 'none';
+  },
+
+  exportData() {
+    const data = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      records: RecordManager.records,
+      drugs: StorageManager.loadDrugs()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `頭痛記録_${date}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  importData(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        const records = data.records || [];
+        const drugs = data.drugs || [];
+
+        // 重複しないように追加
+        const existingIds = new Set(RecordManager.records.map(r => r.id));
+        let added = 0;
+        records.forEach(r => {
+          if (!existingIds.has(r.id)) {
+            RecordManager.records.push(r);
+            added++;
+          }
+        });
+        RecordManager.save();
+
+        // 薬名も追加
+        drugs.forEach(d => StorageManager.saveDrug(d));
+
+        input.value = '';
+        document.getElementById('backup-overlay').style.display = 'none';
+        this.renderCurrentView();
+        alert(`${added}件の記録を読み込みました。`);
+      } catch {
+        alert('ファイルの読み込みに失敗しました。正しいバックアップファイルか確認してください。');
+      }
+    };
+    reader.readAsText(file);
+  }
+};
+
+App.init();
+</script>
+</body>
+</html>
